@@ -53,7 +53,7 @@ RUN set -eux; \
         echo "Running as root; skipping user creation"; \
     else \
         getent group "${YOUTARR_GID}" || groupadd -g "${YOUTARR_GID}" youtarr; \
-        getent passwd "${YOUTARR_UID}" || useradd -m -u "${YOUTARR_UID}" -g "${YOUTARR_GID}" youtarr; \
+        getent passwd "${YOUTARR_UID}" || useradd -m -u "${YOUTARR_UID}" youtarr -G "${YOUTARR_GID}" youtarr; \
         chown -R "${YOUTARR_UID}:${YOUTARR_GID}" /app /config /data; \
     fi
 
