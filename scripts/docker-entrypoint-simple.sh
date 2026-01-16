@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # Trap signals for graceful shutdown
 trap 'handle_shutdown' SIGTERM SIGINT
@@ -7,21 +8,30 @@ handle_shutdown() {
     echo "Received shutdown signal, stopping Node.js server gracefully..."
 
     # Stop Node.js server if it's running
-    if [ ! -z "$NODE_PID" ]; then
+    if [ -n "$NODE_PID" ]; then
         echo "Stopping Node.js server (PID: $NODE_PID)..."
-        kill -TERM "$NODE_PID" 2>/dev/null
-        wait "$NODE_PID" 2>/dev/null
+        kill -TERM "$NODE_PID" 2>/dev/null || true
+        wait "$NODE_PID" 2>/dev/null || true
     fi
 
     echo "Shutdown complete."
     exit 0
 }
 
+# --- Optional ownership fix (ONLY if running as root) ---
+if [ "$(id -u)" = "0" ] && [ -n "$YOUTARR_UID" ] && [ -n "$YOUTARR_GID" ]; then
+    echo "Running as root, fixing ownership for UID:GID ${YOUTARR_UID}:${YOUTARR_GID}"
+    chown -R "${YOUTARR_UID}:${YOUTARR_GID}" /app /config /data 2>/dev/null || true
+else
+    echo "Running as UID $(id -u), skipping chown"
+fi
+
 echo "Waiting for database to be ready..."
 
 MAX_TRIES=30
 TRIES=0
-while [ $TRIES -lt $MAX_TRIES ]; do
+
+while [ "$TRIES" -lt "$MAX_TRIES" ]; do
     if node -e "
         const mysql = require('mysql2/promise');
         mysql.createConnection({
@@ -30,19 +40,15 @@ while [ $TRIES -lt $MAX_TRIES ]; do
             user: process.env.DB_USER || 'root',
             password: process.env.DB_PASSWORD || '123qweasd',
             database: process.env.DB_NAME || 'youtarr'
-        }).then(() => {
-            console.log('Database connection successful');
-            process.exit(0);
-        }).catch((err) => {
-            process.exit(1);
-        });
+        }).then(() => process.exit(0))
+          .catch(() => process.exit(1));
     " 2>/dev/null; then
         echo "Database is ready!"
         break
     fi
 
     TRIES=$((TRIES + 1))
-    if [ $TRIES -eq $MAX_TRIES ]; then
+    if [ "$TRIES" -eq "$MAX_TRIES" ]; then
         echo "Failed to connect to database after $MAX_TRIES attempts"
         exit 1
     fi

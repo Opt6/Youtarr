@@ -111,13 +111,13 @@ To use an external database:
 ### YOUTARR_UID
 **Required**: No
 **Default**: `0` (root)
-**Recommended**: `1000` (typical first user on Linux)
+**Recommended**: `1000` (typical first user on Linux) or `99` (for unRAID user "nobody")
 **Description**: User ID for running Youtarr inside the container
 
 ### YOUTARR_GID
 **Required**: No
 **Default**: `0` (root)
-**Recommended**: `1000`
+**Recommended**: `1000` or `100` (for unRAID group "users")
 **Description**: Group ID for running Youtarr inside the container
 
 **Important Setup Steps**:

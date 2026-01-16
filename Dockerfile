@@ -42,6 +42,18 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o 
 ENV DENO_INSTALL="/usr/local"
 RUN curl -fsSL https://deno.land/install.sh | sh
 
+# ---- User / Permissions ----
+ARG YOUTARR_UID=0
+ARG YOUTARR_GID=0
+ENV YOUTARR_UID=${YOUTARR_UID} \
+    YOUTARR_GID=${YOUTARR_GID}
+
+RUN set -eux; \
+    groupadd -g "${YOUTARR_GID}" youtarr 2>/dev/null || true; \
+    useradd -m -u "${YOUTARR_UID}" -g "${YOUTARR_GID}" youtarr 2>/dev/null || true; \
+    mkdir -p /app /config /data; \
+    chown -R youtarr:youtarr /app /config /data
+
 # Copy Apprise from builder stage
 COPY --from=apprise /opt/apprise /opt/apprise
 ENV PYTHONPATH="/opt/apprise"
@@ -74,4 +86,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD curl --fail --silent --show-error --output /dev/null http://localhost:3011/api/health || exit 1
 
 # Use the entrypoint script
+USER youtarr
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
