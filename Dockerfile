@@ -49,10 +49,13 @@ ENV YOUTARR_UID=${YOUTARR_UID} \
     YOUTARR_GID=${YOUTARR_GID}
 
 RUN set -eux; \
-    groupadd -g "${YOUTARR_GID}" youtarr 2>/dev/null || true; \
-    useradd -m -u "${YOUTARR_UID}" -g "${YOUTARR_GID}" youtarr 2>/dev/null || true; \
-    mkdir -p /app /config /data; \
-    chown -R youtarr:youtarr /app /config /data
+    if [ "${YOUTARR_UID}" = "0" ] && [ "${YOUTARR_GID}" = "0" ]; then \
+        echo "Running as root; skipping user creation"; \
+    else \
+        getent group "${YOUTARR_GID}" || groupadd -g "${YOUTARR_GID}" youtarr; \
+        getent passwd "${YOUTARR_UID}" || useradd -m -u "${YOUTARR_UID}" -g "${YOUTARR_GID}" youtarr; \
+        chown -R "${YOUTARR_UID}:${YOUTARR_GID}" /app /config /data; \
+    fi
 
 # Copy Apprise from builder stage
 COPY --from=apprise /opt/apprise /opt/apprise
