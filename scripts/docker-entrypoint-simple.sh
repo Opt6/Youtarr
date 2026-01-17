@@ -18,16 +18,23 @@ handle_shutdown() {
     exit 0
 }
 
-# --- If non-root UID/GID are set, drop privileges only if explicitly requested -------
-if [ "${YOUTARR_UID}" != "0" ] && [ "${YOUTARR_GID}" != "0" ]; then
-    # Ensure runtime-writable dirs are owned correctly
-    chown -R "${YOUTARR_UID}:${YOUTARR_GID}" /config /data
+APP_CMD="node server/index.js"
 
-    exec gosu "${YOUTARR_UID}:${YOUTARR_GID}" "$@"
+# If arguments were passed, use them; otherwise use default
+if [ "$#" -gt 0 ]; then
+    CMD="$@"
+else
+    CMD="$APP_CMD"
+fi
+
+# Drop privileges only if explicitly requested
+if [ "${YOUTARR_UID}" != "0" ] && [ "${YOUTARR_GID}" != "0" ]; then
+    chown -R "${YOUTARR_UID}:${YOUTARR_GID}" /config /data
+    exec gosu "${YOUTARR_UID}:${YOUTARR_GID}" sh -c "$CMD"
 fi
 
 # Default: run as root
-exec "$@"
+exec sh -c "$CMD"
 
 echo "Waiting for database to be ready..."
 
