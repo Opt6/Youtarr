@@ -18,23 +18,23 @@ handle_shutdown() {
     exit 0
 }
 
-APP_CMD="node server/index.js"
+# Default command (only used if no args were passed)
+DEFAULT_CMD="node"
+DEFAULT_ARGS="server/index.js"
 
-# If arguments were passed, use them; otherwise use default
-if [ "$#" -gt 0 ]; then
-    CMD="$@"
-else
-    CMD="$APP_CMD"
+# If no arguments were provided, set defaults
+if [ "$#" -eq 0 ]; then
+    set -- $DEFAULT_CMD $DEFAULT_ARGS
 fi
 
 # Drop privileges only if explicitly requested
 if [ "${YOUTARR_UID}" != "0" ] && [ "${YOUTARR_GID}" != "0" ]; then
     chown -R "${YOUTARR_UID}:${YOUTARR_GID}" /config /data
-    exec gosu "${YOUTARR_UID}:${YOUTARR_GID}" sh -c "$CMD"
+    exec gosu "${YOUTARR_UID}:${YOUTARR_GID}" "$@"
 fi
 
 # Default: run as root
-exec sh -c "$CMD"
+exec "$@"
 
 echo "Waiting for database to be ready..."
 
