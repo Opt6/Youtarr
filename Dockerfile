@@ -43,9 +43,13 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o 
 ENV DENO_INSTALL="/usr/local"
 RUN curl -fsSL https://deno.land/install.sh | sh
 
-# ---- User / Permissions (root by default) ----
-ARG YOUTARR_UID=0
-ARG YOUTARR_GID=0
+# ---- User / Permissions (1000 by default) ----
+# NOTE:
+# - unRAID users should override via env: 99:100
+# - Runtime privilege drop is handled by gosu in entrypoint
+
+ARG YOUTARR_UID=1000
+ARG YOUTARR_GID=1000
 ENV YOUTARR_UID=${YOUTARR_UID} \
     YOUTARR_GID=${YOUTARR_GID}
 

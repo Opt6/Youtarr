@@ -1,45 +1,62 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-# Trap signals for graceful shutdown
-trap 'handle_shutdown' SIGTERM SIGINT
+# ------------------------------------------------------------
+# Startup banner
+# ------------------------------------------------------------
+echo "------------------------------------------------------------"
+echo " Youtarr container starting"
+echo "------------------------------------------------------------"
+echo " Effective UID:GID : $(id -u):$(id -g)"
+echo " Requested UID:GID : ${YOUTARR_UID:-unset}:${YOUTARR_GID:-unset}"
+echo " Node version      : $(node --version 2>/dev/null || echo unknown)"
+echo "------------------------------------------------------------"
+
+# ------------------------------------------------------------
+# Defaults
+# ------------------------------------------------------------
+YOUTARR_UID="${YOUTARR_UID:-1000}"
+YOUTARR_GID="${YOUTARR_GID:-1000}"
+
+CMD=("node" "server/server.js")
+
+# ------------------------------------------------------------
+# Signal handling
+# ------------------------------------------------------------
+NODE_PID=""
 
 handle_shutdown() {
-    echo "Received shutdown signal, stopping Node.js server gracefully..."
+    echo "[youtarr] Shutdown signal received"
 
-    # Stop Node.js server if it's running
-    if [ -n "$NODE_PID" ]; then
-        echo "Stopping Node.js server (PID: $NODE_PID)..."
+    if [ -n "$NODE_PID" ] && kill -0 "$NODE_PID" 2>/dev/null; then
+        echo "[youtarr] Stopping Node.js (PID $NODE_PID)"
         kill -TERM "$NODE_PID" 2>/dev/null || true
         wait "$NODE_PID" 2>/dev/null || true
     fi
 
-    echo "Shutdown complete."
+    echo "[youtarr] Shutdown complete"
     exit 0
 }
 
-# Default command (only used if no args were passed)
-DEFAULT_CMD="node"
-DEFAULT_ARGS="server/server.js"
+trap handle_shutdown SIGTERM SIGINT
 
-# If no args were provided, use default command
-if [ "$#" -eq 0 ]; then
-    set -- $DEFAULT_CMD $DEFAULT_ARGS
-# If first arg starts with '-', treat args as flags to default command
-elif [ "${1#-}" != "$1" ]; then
-    set -- $DEFAULT_CMD $DEFAULT_ARGS "$@"
-fi
-
-# Drop privileges only if explicitly requested
-if [ "${YOUTARR_UID}" != "0" ] && [ "${YOUTARR_GID}" != "0" ]; then
+# ------------------------------------------------------------
+# Root / privilege handling
+# ------------------------------------------------------------
+if [ "$YOUTARR_UID" = "0" ] || [ "$YOUTARR_GID" = "0" ]; then
+    echo "[youtarr][WARN] Container is running as root (UID=0 / GID=0)"
+    echo "[youtarr][WARN] This is NOT recommended for production"
+    echo "[youtarr][WARN] Set YOUTARR_UID/YOUTARR_GID (e.g. 99:100 on unRAID)"
+else
+    echo "[youtarr] Dropping privileges to ${YOUTARR_UID}:${YOUTARR_GID}"
     chown -R "${YOUTARR_UID}:${YOUTARR_GID}" /config /data
-    exec gosu "${YOUTARR_UID}:${YOUTARR_GID}" "$@"
+    exec gosu "${YOUTARR_UID}:${YOUTARR_GID}" "$0" "$@"
 fi
 
-# Default: run as root
-exec "$@"
-
-echo "Waiting for database to be ready..."
+# ------------------------------------------------------------
+# Database wait
+# ------------------------------------------------------------
+echo "[youtarr] Waiting for database..."
 
 MAX_TRIES=30
 TRIES=0
@@ -55,30 +72,33 @@ while [ "$TRIES" -lt "$MAX_TRIES" ]; do
             database: process.env.DB_NAME || 'youtarr'
         }).then(() => process.exit(0))
           .catch(() => process.exit(1));
-    " 2>/dev/null; then
-        echo "Database is ready!"
+    " >/dev/null 2>&1; then
+        echo "[youtarr] Database is ready"
         break
     fi
 
     TRIES=$((TRIES + 1))
-    if [ "$TRIES" -eq "$MAX_TRIES" ]; then
-        echo "Failed to connect to database after $MAX_TRIES attempts"
-        exit 1
-    fi
-
-    echo "Waiting for database... (attempt $TRIES/$MAX_TRIES)"
+    echo "[youtarr] Waiting for database... (${TRIES}/${MAX_TRIES})"
     sleep 2
 done
 
-echo "Starting Node.js server..."
-node /app/server/server.js &
+if [ "$TRIES" -eq "$MAX_TRIES" ]; then
+    echo "[youtarr][ERROR] Database not reachable after ${MAX_TRIES} attempts"
+    exit 1
+fi
+
+# ------------------------------------------------------------
+# Start Node.js
+# ------------------------------------------------------------
+echo "[youtarr] Starting Node.js server..."
+"${CMD[@]}" &
 NODE_PID=$!
-echo "Node.js server started with PID: $NODE_PID"
 
-# Wait for Node.js process
-# This keeps the script running and allows trap to work
+echo "[youtarr] Node.js started (PID $NODE_PID)"
+
+# ------------------------------------------------------------
+# Wait
+# ------------------------------------------------------------
 wait "$NODE_PID"
-
-# If we get here, Node crashed without signal
-echo "Node.js server exited unexpectedly"
+echo "[youtarr][ERROR] Node.js exited unexpectedly"
 exit 1
