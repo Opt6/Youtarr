@@ -44,21 +44,19 @@ ENV DENO_INSTALL="/usr/local"
 RUN curl -fsSL https://deno.land/install.sh | sh
 
 # ---- User / Permissions (1000 by default) ----
-# NOTE:
-# - unRAID users should override via env: 99:100
-# - Runtime privilege drop is handled by gosu in entrypoint
+# -- NOTE:
+# -- unRAID users should override via env: 99:100
+# -- Runtime privilege drop is handled by gosu in entrypoint
 
+# Build-time user
 ARG YOUTARR_UID=1000
 ARG YOUTARR_GID=1000
 ENV YOUTARR_UID=${YOUTARR_UID} \
     YOUTARR_GID=${YOUTARR_GID}
 
-# Create user only if non-root UID/GID is provided
-RUN set -eux; \
-    if [ "${YOUTARR_UID}" != "0" ] && [ "${YOUTARR_GID}" != "0" ]; then \
-        getent group "${YOUTARR_GID}" || groupadd -g "${YOUTARR_GID}" youtarr; \
-        getent passwd "${YOUTARR_UID}" || useradd -m -u "${YOUTARR_UID}" -g "${YOUTARR_GID}" youtarr; \
-    fi; \
+# Create non-root youtarr user and group
+RUN groupadd -g ${YOUTARR_GID} youtarr || true && \
+    useradd -m -u ${YOUTARR_UID} -g ${YOUTARR_GID} youtarr || true && \
     mkdir -p /config /data
 
 # Copy Apprise from builder stage
