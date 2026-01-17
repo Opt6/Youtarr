@@ -18,13 +18,16 @@ handle_shutdown() {
     exit 0
 }
 
-# --- Optional ownership fix (ONLY if running as root) ---
-if [ "$(id -u)" = "0" ] && [ -n "$YOUTARR_UID" ] && [ -n "$YOUTARR_GID" ]; then
-    echo "Running as root, fixing ownership for UID:GID ${YOUTARR_UID}:${YOUTARR_GID}"
-    chown -R "${YOUTARR_UID}:${YOUTARR_GID}" /app /config /data 2>/dev/null || true
-else
-    echo "Running as UID $(id -u), skipping chown"
+# --- If non-root UID/GID are set, drop privileges only if explicitly requested -------
+if [ "${YOUTARR_UID}" != "0" ] && [ "${YOUTARR_GID}" != "0" ]; then
+    # Ensure runtime-writable dirs are owned correctly
+    chown -R "${YOUTARR_UID}:${YOUTARR_GID}" /config /data
+
+    exec gosu "${YOUTARR_UID}:${YOUTARR_GID}" "$@"
 fi
+
+# Default: run as root
+exec "$@"
 
 echo "Waiting for database to be ready..."
 

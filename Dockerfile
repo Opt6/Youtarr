@@ -25,13 +25,14 @@ RUN pip install --no-cache-dir --target=/opt/apprise apprise
 FROM node:20-slim AS release
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies and gosu for privilege drop
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     unzip \
     python3 \
     ca-certificates \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Download the latest yt-dlp release directly from GitHub
@@ -42,20 +43,21 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o 
 ENV DENO_INSTALL="/usr/local"
 RUN curl -fsSL https://deno.land/install.sh | sh
 
-# ---- User / Permissions ----
+# ---- User / Permissions (root by default) ----
 ARG YOUTARR_UID=0
 ARG YOUTARR_GID=0
 ENV YOUTARR_UID=${YOUTARR_UID} \
     YOUTARR_GID=${YOUTARR_GID}
 
+# Create user only if non-root UID/GID is provided
 RUN set -eux; \
-    if [ "${YOUTARR_UID}" = "0" ] && [ "${YOUTARR_GID}" = "0" ]; then \
-        echo "Running as root; skipping user creation"; \
-    else \
+    if [ "${YOUTARR_UID}" != "0" ] && [ "${YOUTARR_GID}" != "0" ]; then \
+														 
+		  
         getent group "${YOUTARR_GID}" || groupadd -g "${YOUTARR_GID}" youtarr; \
-        getent passwd "${YOUTARR_UID}" || useradd -m -u "${YOUTARR_UID}" youtarr -G "${YOUTARR_GID}" youtarr; \
-        chown -R "${YOUTARR_UID}:${YOUTARR_GID}" /app /config /data; \
-    fi
+        getent passwd "${YOUTARR_UID}" || useradd -m -u "${YOUTARR_UID}" -g "${YOUTARR_GID}" youtarr; \
+    fi; \
+    mkdir -p /config /data
 
 # Copy Apprise from builder stage
 COPY --from=apprise /opt/apprise /opt/apprise
@@ -84,10 +86,9 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # Expose port for the application
 EXPOSE 3011
 
-# Health check
+# Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD curl --fail --silent --show-error --output /dev/null http://localhost:3011/api/health || exit 1
 
-# Use the entrypoint script
-USER youtarr
+# Run entrypoint (privilege drop handled inside script)
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
