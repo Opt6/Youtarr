@@ -22,9 +22,12 @@ handle_shutdown() {
 DEFAULT_CMD="node"
 DEFAULT_ARGS="server/index.js"
 
-# If no arguments were provided, set defaults
+# If no args were provided, use default command
 if [ "$#" -eq 0 ]; then
     set -- $DEFAULT_CMD $DEFAULT_ARGS
+# If first arg starts with '-', treat args as flags to default command
+elif [ "${1#-}" != "$1" ]; then
+    set -- $DEFAULT_CMD $DEFAULT_ARGS "$@"
 fi
 
 # Drop privileges only if explicitly requested
