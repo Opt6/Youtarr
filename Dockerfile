@@ -52,8 +52,6 @@ ENV YOUTARR_UID=${YOUTARR_UID} \
 # Create user only if non-root UID/GID is provided
 RUN set -eux; \
     if [ "${YOUTARR_UID}" != "0" ] && [ "${YOUTARR_GID}" != "0" ]; then \
-														 
-		  
         getent group "${YOUTARR_GID}" || groupadd -g "${YOUTARR_GID}" youtarr; \
         getent passwd "${YOUTARR_UID}" || useradd -m -u "${YOUTARR_UID}" -g "${YOUTARR_GID}" youtarr; \
     fi; \
