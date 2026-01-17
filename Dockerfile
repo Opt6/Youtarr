@@ -55,8 +55,9 @@ ENV YOUTARR_UID=${YOUTARR_UID} \
     YOUTARR_GID=${YOUTARR_GID}
 
 # Create non-root youtarr user and group
-RUN groupadd -g ${YOUTARR_GID} youtarr || true && \
-    useradd -m -u ${YOUTARR_UID} -g ${YOUTARR_GID} youtarr || true && \
+RUN set -eux; \
+    getent group "${YOUTARR_GID}" || groupadd -g "${YOUTARR_GID}" youtarr; \
+    getent passwd "${YOUTARR_UID}" || useradd -m -u "${YOUTARR_UID}" -g "${YOUTARR_GID}" youtarr; \
     mkdir -p /config /data
 
 # Copy Apprise from builder stage
