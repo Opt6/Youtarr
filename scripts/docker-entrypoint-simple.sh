@@ -42,16 +42,19 @@ trap handle_shutdown SIGTERM SIGINT
 
 # ------------------------------------------------------------
 # Root / privilege handling
+# Drop privileges only if requested and user exists
 # ------------------------------------------------------------
-if [ "$YOUTARR_UID" = "0" ] || [ "$YOUTARR_GID" = "0" ]; then
-    echo "[youtarr][WARN] Container is running as root (UID=0 / GID=0)"
-    echo "[youtarr][WARN] This is NOT recommended for production"
-    echo "[youtarr][WARN] Set YOUTARR_UID/YOUTARR_GID (e.g. 99:100 on unRAID)"
-else
-    echo "[youtarr] Dropping privileges to ${YOUTARR_UID}:${YOUTARR_GID}"
-    chown -R "${YOUTARR_UID}:${YOUTARR_GID}" /config /data
-    exec gosu "${YOUTARR_UID}:${YOUTARR_GID}" "$0" "$@"
+if id -u "$YOUTARR_UID" >/dev/null 2>&1 && id -g "$YOUTARR_GID" >/dev/null 2>&1; then
+    if [ "$YOUTARR_UID" -ne 0 ] && [ "$YOUTARR_GID" -ne 0 ]; then
+        echo "[youtarr] Dropping privileges to ${YOUTARR_UID}:${YOUTARR_GID}"
+        chown -R "${YOUTARR_UID}:${YOUTARR_GID}" /config /data
+        exec gosu "${YOUTARR_UID}:${YOUTARR_GID}" "$@"
+    fi
 fi
+
+# fallback to root
+echo "[youtarr][WARN] Running as root"
+exec "$@"
 
 # ------------------------------------------------------------
 # Database wait

@@ -54,9 +54,10 @@ ARG YOUTARR_GID=1000
 ENV YOUTARR_UID=${YOUTARR_UID} \
     YOUTARR_GID=${YOUTARR_GID}
 
-# Create non-root youtarr user and group
 RUN set -eux; \
+    # create primary group if missing
     getent group "${YOUTARR_GID}" || groupadd -g "${YOUTARR_GID}" youtarr; \
+    # create primary user if missing
     getent passwd "${YOUTARR_UID}" || useradd -m -u "${YOUTARR_UID}" -g "${YOUTARR_GID}" youtarr; \
     mkdir -p /config /data
 
