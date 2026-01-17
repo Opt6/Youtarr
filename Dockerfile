@@ -92,4 +92,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Run entrypoint (privilege drop handled inside script)
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["node", "server/index.js"]
+CMD ["node", "server/server.js"]

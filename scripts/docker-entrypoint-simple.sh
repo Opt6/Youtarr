@@ -20,7 +20,7 @@ handle_shutdown() {
 
 # Default command (only used if no args were passed)
 DEFAULT_CMD="node"
-DEFAULT_ARGS="server/index.js"
+DEFAULT_ARGS="server/server.js"
 
 # If no args were provided, use default command
 if [ "$#" -eq 0 ]; then
